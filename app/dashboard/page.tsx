@@ -22,6 +22,7 @@ import {
 import { format } from 'date-fns';
 import { useSession } from "next-auth/react"; // Add this import
 import { getCategoryIcon } from '../utils/categoryIcons';
+import { Transaction } from '../types';
 
 // Add this near the top of your file, after imports
 const MOCK_USER_ID = "mock-user-id-123";
@@ -40,29 +41,30 @@ const transactionSchema = z.object({
   description: z.string().min(1),
 });
 
-function AddTransactionForm({ onAddTransaction, onClose }) {
+// Define the props for AddTransactionForm
+interface AddTransactionFormProps {
+  onAddTransaction: (transaction: z.infer<typeof transactionSchema>) => void;
+  onClose: () => void;
+}
+
+function AddTransactionForm({ onAddTransaction, onClose }: AddTransactionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const form = useForm({
+  const form = useForm<z.infer<typeof transactionSchema>>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       category: "savings",
       type: "income",
-      amount: "",
+      amount: 0,
       description: "",
     },
   });
 
-  function onSubmit(data) {
+  function onSubmit(data: z.infer<typeof transactionSchema>) {
     if (isSubmitting) return; // Prevent double submission
     setIsSubmitting(true);
     try {
-      const formattedData = {
-        ...data,
-        amount: parseFloat(data.amount)
-      };
-
-      console.log('Submitting transaction:', formattedData);
-      onAddTransaction(formattedData);
+      console.log('Submitting transaction:', data);
+      onAddTransaction(data);
       form.reset();
       onClose();
     } catch (error) {
@@ -154,16 +156,6 @@ function AddTransactionForm({ onAddTransaction, onClose }) {
   );
 }
 
-// Update the transaction type
-type Transaction = {
-  id: string;
-  date: string;
-  category: string;
-  type: 'income' | 'expense';
-  amount: number;
-  description: string;
-};
-
 export default function DashboardPage() {
   const [allowances, setAllowances] = useState(mockAllowances);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -201,7 +193,7 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const handleAddTransaction = async (newTransaction: Omit<Transaction, 'id' | 'date'>) => {
+  const handleAddTransaction = async (newTransaction: z.infer<typeof transactionSchema>) => {
     try {
       let userId;
 
@@ -238,13 +230,13 @@ export default function DashboardPage() {
     }
   };
 
-  const calculateTotalByCategory = (category) => {
+  const calculateTotalByCategory = (category: string) => {
     return transactions
       .filter(t => t.category === category)
       .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
   };
 
-  const calculateWeeklyChangeByCategory = (category) => {
+  const calculateWeeklyChangeByCategory = (category: string) => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     
@@ -288,7 +280,13 @@ export default function DashboardPage() {
   );
 }
 
-function Box({ title, total, weeklyChange, icon: Icon, color }) {
+function Box({ title, total, weeklyChange, icon: Icon, color }: {
+  title: string;
+  total: number;
+  weeklyChange: number;
+  icon: React.ElementType;
+  color: string;
+}) {
   return (
     <div className="p-4 rounded-lg border border-gray-200">
       <div className={`flex items-center justify-between mb-2 ${color}`}>
@@ -303,7 +301,10 @@ function Box({ title, total, weeklyChange, icon: Icon, color }) {
   );
 }
 
-function TransactionLog({ transactions, onAddTransaction }) {
+function TransactionLog({ transactions, onAddTransaction }: {
+  transactions: Transaction[];
+  onAddTransaction: (transaction: z.infer<typeof transactionSchema>) => void;
+}) {
   const [isAddingTransaction, setIsAddingTransaction] = useState(false);
 
   return (
@@ -356,7 +357,6 @@ function TransactionLog({ transactions, onAddTransaction }) {
   );
 }
 
-// Update the TransactionTable component prop type
 function TransactionTable({ transactions }: { transactions: Transaction[] }) {
   return (
     <Table>

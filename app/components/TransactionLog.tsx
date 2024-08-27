@@ -1,7 +1,8 @@
+import { Transaction } from '../types';
 import { Plus } from 'lucide-react';
 import { getCategoryIcon } from '../utils/categoryIcons';
 
-function TransactionLog({ transactions }) {
+function TransactionLog({ transactions }: { transactions: Transaction[] }) {
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="bg-gray-100 px-4 py-3 flex justify-between items-center">
