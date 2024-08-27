@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
 export default async function ParentDashboard() {
   const session = await getServerSession()
