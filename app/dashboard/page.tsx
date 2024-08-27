@@ -21,15 +21,16 @@ import {
 } from "@/components/ui/dialog";
 import { format } from 'date-fns';
 import { useSession } from "next-auth/react"; // Add this import
+import { getCategoryIcon } from '../utils/categoryIcons';
 
 // Add this near the top of your file, after imports
 const MOCK_USER_ID = "mock-user-id-123";
 
 // Mock allowances data
 const mockAllowances = {
-  savings: { amount: 5, type: 'weekly', color: 'bg-blue-100 text-blue-800', icon: PiggyBank },
-  spending: { amount: 10, type: 'weekly', color: 'bg-green-100 text-green-800', icon: ShoppingCart },
-  giving: { amount: 15, type: 'percent', color: 'bg-purple-100 text-purple-800', icon: Gift },
+  savings: { weeklyChange: 5, color: 'text-blue-600', icon: PiggyBank },
+  spending: { weeklyChange: -10, color: 'text-green-600', icon: ShoppingCart },
+  giving: { weeklyChange: 15, color: 'text-purple-600', icon: Gift },
 };
 
 const transactionSchema = z.object({
@@ -167,7 +168,6 @@ export default function Dashboard() {
   const [allowances, setAllowances] = useState(mockAllowances);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAddingTransaction, setIsAddingTransaction] = useState(false);
   const dataFetchedRef = useRef(false);
   const { data: session } = useSession(); // Add this line to get the session
 
@@ -244,6 +244,15 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
   };
 
+  const calculateWeeklyChangeByCategory = (category) => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    return transactions
+      .filter(t => t.category === category && new Date(t.date) >= oneWeekAgo)
+      .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+  };
+
   // Wrap the console.log in useEffect to avoid double logging
   useEffect(() => {
     console.log('Rendering Dashboard. isLoading:', isLoading, 'transactions:', transactions);
@@ -254,52 +263,72 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {Object.entries(allowances).map(([category, { amount, type, color, icon: Icon }]) => (
-          <Card key={category} className={`${color} border-none`}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="capitalize text-lg font-medium">{category}</CardTitle>
-              <Icon className="h-5 w-5" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">
-                ${calculateTotalByCategory(category).toFixed(2)}
-              </p>
-              <p className="text-sm mt-1">
-                Allowance: {type === 'weekly' ? `$${amount}/week` : `${amount}%/year`}
-              </p>
-            </CardContent>
-          </Card>
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
+      <h1 className="text-2xl font-semibold mb-4">Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {Object.entries(allowances).map(([category, { weeklyChange, color, icon: Icon }]) => (
+          <Box
+            key={category}
+            title={category}
+            total={calculateTotalByCategory(category)}
+            weeklyChange={calculateWeeklyChangeByCategory(category)}
+            icon={Icon}
+            color={color}
+          />
         ))}
       </div>
 
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Transactions</h2>
-          <Dialog open={isAddingTransaction} onOpenChange={setIsAddingTransaction}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" onClick={() => setIsAddingTransaction(true)}>
-                <Plus className="h-4 w-4 mr-2" /> Add Transaction
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Transaction</DialogTitle>
-              </DialogHeader>
-              <AddTransactionForm 
-                onAddTransaction={(newTransaction) => {
-                  handleAddTransaction(newTransaction);
-                  setIsAddingTransaction(false);
-                }}
-                onClose={() => setIsAddingTransaction(false)}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
+      <TransactionLog 
+        transactions={transactions} 
+        onAddTransaction={handleAddTransaction}
+      />
+    </div>
+  );
+}
 
+function Box({ title, total, weeklyChange, icon: Icon, color }) {
+  return (
+    <div className="p-4 rounded-lg border border-gray-200">
+      <div className={`flex items-center justify-between mb-2 ${color}`}>
+        <h2 className="text-lg font-semibold capitalize">{title}</h2>
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="text-3xl font-bold mb-1 text-gray-900">${total.toFixed(2)}</p>
+      <p className="text-sm text-gray-500">
+        {weeklyChange >= 0 ? '+' : '-'}${Math.abs(weeklyChange).toFixed(2)}/week
+      </p>
+    </div>
+  );
+}
+
+function TransactionLog({ transactions, onAddTransaction }) {
+  const [isAddingTransaction, setIsAddingTransaction] = useState(false);
+
+  return (
+    <Card className="bg-white p-4 rounded-lg shadow">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-lg font-semibold">Transaction Log</CardTitle>
+        <Dialog open={isAddingTransaction} onOpenChange={setIsAddingTransaction}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" onClick={() => setIsAddingTransaction(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Add Transaction
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Transaction</DialogTitle>
+            </DialogHeader>
+            <AddTransactionForm 
+              onAddTransaction={(newTransaction) => {
+                onAddTransaction(newTransaction);
+                setIsAddingTransaction(false);
+              }}
+              onClose={() => setIsAddingTransaction(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
         <Tabs defaultValue="all">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all">All</TabsTrigger>
@@ -320,8 +349,8 @@ export default function Dashboard() {
             <TransactionTable transactions={transactions.filter(t => t.category === 'giving')} />
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -342,7 +371,12 @@ function TransactionTable({ transactions }: { transactions: Transaction[] }) {
         {transactions.map((transaction) => (
           <TableRow key={transaction.id}>
             <TableCell>{format(new Date(transaction.date), 'MMM d, yyyy h:mm a')}</TableCell>
-            <TableCell className="capitalize">{transaction.category}</TableCell>
+            <TableCell>
+              <div className="flex items-center">
+                {getCategoryIcon(transaction.category)}
+                <span className="ml-2 capitalize">{transaction.category}</span>
+              </div>
+            </TableCell>
             <TableCell>
               {transaction.type === 'income' ? (
                 <span className="flex items-center text-green-600">
