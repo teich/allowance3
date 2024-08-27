@@ -8,18 +8,44 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
+  id            String         @id @default(cuid())
   name          String?
-  transactions  Transaction[]
-  allowances    Allowance[]
+  email         String         @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String         @default("child")
+  families      FamilyMember[]
+  // ... other fields
+  Transaction   Transaction[]
+  Allowance     Allowance[]
+}
+
+model Family {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  members     FamilyMember[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model FamilyMember {
+  id       String @id @default(cuid())
+  userId   String
+  familyId String
+  role     String @default("child")
+  user     User   @relation(fields: [userId], references: [id])
+  family   Family @relation(fields: [familyId], references: [id])
+
+  @@unique([userId, familyId])
 }
 
 model Transaction {
   id          String   @id @default(cuid())
   date        DateTime @default(now())
   category    String
-  type        String   // Make it required again
+  type        String // Make it required again
   amount      Float
   description String
   userId      String

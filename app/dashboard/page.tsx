@@ -164,7 +164,7 @@ type Transaction = {
   description: string;
 };
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const [allowances, setAllowances] = useState(mockAllowances);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -263,25 +263,27 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
-      <h1 className="text-2xl font-semibold mb-4">Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {Object.entries(allowances).map(([category, { weeklyChange, color, icon: Icon }]) => (
-          <Box
-            key={category}
-            title={category}
-            total={calculateTotalByCategory(category)}
-            weeklyChange={calculateWeeklyChangeByCategory(category)}
-            icon={Icon}
-            color={color}
-          />
-        ))}
-      </div>
+    <div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
+        <h1 className="text-2xl font-semibold mb-4">Dashboard</h1>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {Object.entries(allowances).map(([category, { weeklyChange, color, icon: Icon }]) => (
+            <Box
+              key={category}
+              title={category}
+              total={calculateTotalByCategory(category)}
+              weeklyChange={calculateWeeklyChangeByCategory(category)}
+              icon={Icon}
+              color={color}
+            />
+          ))}
+        </div>
 
-      <TransactionLog 
-        transactions={transactions} 
-        onAddTransaction={handleAddTransaction}
-      />
+        <TransactionLog 
+          transactions={transactions} 
+          onAddTransaction={handleAddTransaction}
+        />
+      </div>
     </div>
   );
 }

@@ -1,65 +1,47 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]/route";
+import { prisma } from '@/lib/prisma';
 
-const MOCK_USER_ID = "test-user-id-123"; // Update this to match the seed.ts file
+export async function GET(request: Request) {
+  console.log("Attempting to get server session...");
+  const session = await getServerSession(authOptions);
+  console.log("Server session:", session);
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { category, type, amount, description } = body;
-
-    let userId;
-
-    if (process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true') {
-      userId = MOCK_USER_ID;
-    } else {
-      const session = await getServerSession(null);
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      userId = session.user.id;
-    }
-
-    const transaction = await prisma.transaction.create({
-      data: {
-        category,
-        type,
-        amount,
-        description,
-        userId,
-      },
-    });
-
-    return NextResponse.json(transaction);
-  } catch (error) {
-    console.error('Error creating transaction:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  if (!session) {
+    console.log("No session found, returning 401");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Fetch transactions for the authenticated user
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      userId: session.user.id
+    },
+    orderBy: {
+      date: 'desc'
+    }
+  });
+
+  return NextResponse.json(transactions);
 }
 
-export async function GET() {
-  try {
-    let userId;
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
 
-    if (process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true') {
-      userId = MOCK_USER_ID;
-    } else {
-      const session = await getServerSession(null);
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      userId = session.user.id;
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where: { userId },
-      orderBy: { date: 'desc' },
-    });
-
-    return NextResponse.json(transactions);
-  } catch (error) {
-    console.error('Error fetching transactions:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const data = await request.json();
+  
+  // Create a new transaction for the authenticated user
+  const transaction = await prisma.transaction.create({
+    data: {
+      ...data,
+      userId: session.user.id
+    }
+  });
+
+  return NextResponse.json(transaction, { status: 201 });
 }
